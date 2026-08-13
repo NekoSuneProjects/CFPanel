@@ -172,15 +172,8 @@ class CloudflareClient {
   }
 
   normalizeOriginRequest(originRequest = {}) {
-    const result = {};
-    if (originRequest.noTLSVerify === true) result.noTLSVerify = true;
-    if (String(originRequest.httpHostHeader || "").trim()) {
-      result.httpHostHeader = String(originRequest.httpHostHeader).trim();
-    }
-    if (String(originRequest.originServerName || "").trim()) {
-      result.originServerName = String(originRequest.originServerName).trim();
-    }
-    return result;
+    if (!originRequest || typeof originRequest !== "object" || Array.isArray(originRequest)) return {};
+    return Object.fromEntries(Object.entries(originRequest).filter(([, value]) => value !== undefined && value !== null && value !== ""));
   }
 
   normalizeRoute({ hostname, path, service, originRequest }) {
@@ -262,16 +255,16 @@ class CloudflareClient {
 
     if (manageDns) {
       await this.ensureTunnelDns({ zoneId, tunnelId, hostname: nextRoute.hostname });
-    }
 
-    if (previous && previous.hostname !== nextRoute.hostname) {
-      const previousStillUsed = routes.some((rule) => rule.hostname === previous.hostname);
-      if (!previousStillUsed && originalZoneId) {
-        await this.removeTunnelDns({
-          zoneId: originalZoneId,
-          tunnelId,
-          hostname: previous.hostname
-        });
+      if (previous && previous.hostname !== nextRoute.hostname) {
+        const previousStillUsed = routes.some((rule) => rule.hostname === previous.hostname);
+        if (!previousStillUsed && originalZoneId) {
+          await this.removeTunnelDns({
+            zoneId: originalZoneId,
+            tunnelId,
+            hostname: previous.hostname
+          });
+        }
       }
     }
 
@@ -313,7 +306,6 @@ class CloudflareClient {
     return nextConfig;
   }
 
-  // Backwards-compatible wrappers used by older CFPanel UI builds.
   async addPublicHostname({ tunnelId, zoneId, hostname, service, path, originRequest }) {
     return this.savePublicRoute({ tunnelId, zoneId, hostname, service, path, originRequest, manageDns: true });
   }
