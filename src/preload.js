@@ -18,7 +18,9 @@ contextBridge.exposeInMainWorld("cfpanel", {
   deleteTunnel: (tunnelId) => call("tunnels:delete", { tunnelId }),
   getTunnelToken: (tunnelId) => call("tunnels:token", { tunnelId }),
   getTunnelConfig: (tunnelId) => call("tunnels:config", { tunnelId }),
-  addPublicHostname: (args) => call("tunnels:addHostname", args),
-  removePublicHostname: (args) => call("tunnels:removeHostname", args),
+  getTunnelConfiguration: (tunnelId) => call("tunnels:configuration", { tunnelId }),
+  savePublicRoute: (args) => call("tunnels:saveRoute", args),
+  removePublicRoute: (args) => call("tunnels:removeRoute", args),
+  movePublicRoute: (args) => call("tunnels:moveRoute", args),
   copy: (text) => call("system:copy", { text })
 });
