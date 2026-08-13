@@ -3,16 +3,19 @@
   "version": "0.1.0",
   "description": "A lightweight desktop panel for managing Cloudflare zones, DNS and Zero Trust tunnels.",
   "main": "src/main.js",
-  "author": "NekoSuneProjects",
+  "author": {
+    "name": "NekoSuneProjects",
+    "email": "noreply@github.com"
+  },
   "license": "MIT",
   "private": false,
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/cloudflare.js && node --check src/store.js",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
   },
   "devDependencies": {
     "electron": "^37.2.6",
@@ -41,7 +44,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "Network"
+      "category": "Network",
+      "maintainer": "NekoSuneProjects <noreply@github.com>"
     },
     "nsis": {
       "oneClick": false,
