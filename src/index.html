@@ -14,7 +14,15 @@
       <nav id="nav">
         <button class="nav-item active" data-page="dashboard">Overview</button>
         <button class="nav-item" data-page="domains">Domains & DNS</button>
+        <button class="nav-item" data-plus-page="bulkdns">Bulk DNS</button>
+        <button class="nav-item" data-plus-page="analytics">Analytics</button>
+        <button class="nav-item" data-plus-page="controls">Zone Controls</button>
+        <button class="nav-item" data-plus-page="workers">Workers</button>
+        <button class="nav-item" data-plus-page="rules">Rules & Cache</button>
         <button class="nav-item" data-page="tunnels">Zero Trust Tunnels</button>
+        <button class="nav-item" data-plus-page="zthub">Zero Trust Hub</button>
+        <button class="nav-item" data-plus-page="access">Access</button>
+        <button class="nav-item" data-plus-page="explorer">API Explorer</button>
         <button class="nav-item" data-page="settings">Settings</button>
       </nav>
       <div class="sidebar-footer"><span class="status-dot" id="connectionDot"></span><span id="connectionText">Not connected</span></div>
@@ -42,42 +50,57 @@
         <article class="panel"><div class="panel-head"><div><h2>DNS Records</h2><p id="dnsCaption">Choose a domain to view DNS.</p></div><button class="button" id="newDnsBtn" disabled>Add DNS record</button></div><div class="table-wrap"><table><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>Proxy</th><th>TTL</th><th></th></tr></thead><tbody id="dnsTable"><tr><td colspan="6" class="muted center">No domain selected.</td></tr></tbody></table></div></article>
       </section>
 
+      <section class="page" id="page-bulkdns">
+        <div class="toolbar wrap"><select id="bulkZoneSelect"><option value="">Choose scope</option></select><input id="bulkFilter" placeholder="Filter name, type or content"><button class="button secondary" id="bulkReloadBtn">Load records</button><button class="button secondary" id="bulkSelectAllBtn">Select visible</button><button class="button secondary" id="bulkSelectNoneBtn">Clear selection</button></div>
+        <article class="panel"><div class="panel-head"><div><h2>Bulk DNS manager</h2><p id="bulkDnsCaption">Select a zone or all zones. CFPanel groups changes into Cloudflare batch operations per zone.</p></div><span class="badge" id="bulkSelectedCount">0 selected</span></div><div class="table-wrap tall-table"><table><thead><tr><th></th><th>Zone</th><th>Type</th><th>Name</th><th>Content</th><th>Proxy</th><th>TTL</th></tr></thead><tbody id="bulkDnsTable"><tr><td colspan="7" class="muted center">Load DNS records to begin.</td></tr></tbody></table></div></article>
+        <article class="panel action-panel"><div class="panel-head"><div><h2>Apply to selected records</h2><p>Leave a field unchanged to preserve its current value. Advanced JSON is merged into every patch, including SRV data fields.</p></div></div><div class="form-grid bulk-fields"><label><span>Content / target</span><input id="bulkContent" placeholder="Leave blank to keep current content"></label><label><span>Proxy status</span><select id="bulkProxy"><option value="keep">Keep current</option><option value="on">Proxied</option><option value="off">DNS only</option></select></label><label><span>TTL</span><input id="bulkTtl" type="number" min="1" placeholder="Keep current"></label><label class="wide"><span>Advanced JSON fields</span><textarea id="bulkPatchJson" rows="4" placeholder='Example: {"data":{"target":"new.example.com","port":25565}}'></textarea></label></div><div class="form-actions"><button class="button" id="bulkApplyBtn">Apply bulk update</button><button class="button danger ghost" id="bulkDeleteBtn">Delete selected</button></div></article>
+      </section>
+
+      <section class="page" id="page-analytics">
+        <div class="toolbar"><select id="analyticsZoneSelect"></select><select id="analyticsHours"><option value="24">Last 24 hours</option><option value="168">Last 7 days</option></select><button class="button" id="analyticsLoadBtn">Load analytics</button></div>
+        <div class="stat-grid"><article class="stat-card"><span>Requests</span><strong id="analyticsRequests">—</strong><small>HTTP requests</small></article><article class="stat-card"><span>Visits</span><strong id="analyticsVisits">—</strong><small>Estimated visits</small></article><article class="stat-card"><span>Data transfer</span><strong id="analyticsBytes">—</strong><small>Edge response bytes</small></article><article class="stat-card"><span>Security events</span><strong id="analyticsFirewall">—</strong><small>Firewall event groups</small></article></div>
+        <div class="grid-two"><article class="panel"><div class="panel-head"><div><h2>Traffic timeline</h2><p>Hourly HTTP analytics from Cloudflare GraphQL.</p></div></div><div class="table-wrap"><table><thead><tr><th>Hour</th><th>Requests</th><th>Visits</th><th>Transfer</th></tr></thead><tbody id="analyticsTrafficTable"><tr><td colspan="4" class="muted center">Load analytics.</td></tr></tbody></table></div></article><article class="panel"><div class="panel-head"><div><h2>Security actions</h2><p>Firewall events grouped by action.</p></div></div><div id="analyticsFirewallList" class="stack empty-state">Load analytics.</div></article></div>
+      </section>
+
+      <section class="page" id="page-controls">
+        <div class="toolbar"><select id="controlsZoneSelect"></select><button class="button" id="controlsLoadBtn">Load controls</button></div>
+        <div class="control-grid"><article class="control-card"><span>Under Attack Mode</span><strong id="underAttackState">—</strong><button class="button danger ghost" id="underAttackBtn">Toggle</button></article><article class="control-card"><span>Development Mode</span><strong id="devModeState">—</strong><button class="button secondary" id="devModeBtn">Toggle</button></article><article class="control-card"><span>Always Use HTTPS</span><strong id="httpsState">—</strong><button class="button secondary" id="httpsBtn">Toggle</button></article><article class="control-card"><span>Universal SSL</span><strong id="universalSslState">—</strong><button class="button secondary" id="universalSslBtn">Toggle</button></article></div>
+        <div class="grid-two"><article class="panel"><div class="panel-head"><div><h2>Zone settings</h2><p>Editable settings exposed by your zone and plan.</p></div></div><div class="table-wrap tall-table"><table><thead><tr><th>Setting</th><th>Value</th><th>Editable</th><th></th></tr></thead><tbody id="zoneSettingsTable"><tr><td colspan="4" class="muted center">Choose a zone.</td></tr></tbody></table></div></article><article class="panel"><div class="panel-head"><div><h2>Cache actions</h2><p>Purge everything or a specific set of URLs.</p></div></div><div class="form-grid"><label><span>URLs, one per line</span><textarea id="purgeUrls" rows="9" placeholder="https://example.com/file.css"></textarea></label><div class="form-actions"><button class="button secondary" id="purgeUrlsBtn">Purge URLs</button><button class="button danger ghost" id="purgeAllBtn">Purge everything</button></div></div></article></div>
+      </section>
+
+      <section class="page" id="page-workers">
+        <div class="toolbar"><button class="button" id="newWorkerBtn">Create Worker</button><button class="button secondary" id="workersReloadBtn">Refresh Workers</button></div>
+        <article class="panel"><div class="panel-head"><div><h2>Workers</h2><p>Create, inspect, update and remove account Workers.</p></div></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Modified</th><th>Compatibility</th><th></th></tr></thead><tbody id="workersTable"><tr><td colspan="4" class="muted center">Load Workers.</td></tr></tbody></table></div></article>
+        <article class="panel action-panel"><div class="panel-head"><div><h2>Worker routes</h2><p>Map zone URL patterns to Workers.</p></div><div class="route-head-actions"><select id="workerRouteZoneSelect"></select><button class="button" id="newWorkerRouteBtn">Add route</button></div></div><div class="table-wrap"><table><thead><tr><th>Pattern</th><th>Worker</th><th></th></tr></thead><tbody id="workerRoutesTable"><tr><td colspan="3" class="muted center">Choose a zone.</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-rules">
+        <div class="toolbar"><select id="rulesZoneSelect"></select><button class="button" id="rulesLoadBtn">Load rulesets</button><button class="button secondary" id="newRulesetBtn">Create ruleset from JSON</button></div>
+        <div class="grid-two"><article class="panel"><div class="panel-head"><div><h2>Rulesets</h2><p>WAF, redirects, configuration, transforms, cache rules, rate limiting and other Ruleset Engine phases.</p></div></div><div class="table-wrap tall-table"><table><thead><tr><th>Name</th><th>Phase</th><th>Kind</th><th></th></tr></thead><tbody id="rulesetsTable"><tr><td colspan="4" class="muted center">Choose a zone.</td></tr></tbody></table></div></article><article class="panel"><div class="panel-head"><div><h2>Ruleset JSON</h2><p>Inspect the selected Cloudflare ruleset.</p></div></div><pre class="json-output" id="rulesetOutput">Select View on a ruleset.</pre></article></div>
+      </section>
+
       <section class="page" id="page-tunnels">
         <div class="toolbar"><button class="button" id="newTunnelBtn">Create tunnel</button></div>
         <div id="tunnelGrid" class="card-grid"></div>
+        <article class="panel route-manager" id="tunnelRoutePanel" hidden><div class="panel-head route-manager-head"><div><div class="eyebrow">Published application routes</div><h2 id="routeTunnelName">Tunnel</h2><p id="routeTunnelMeta">Select a tunnel to manage the domains and services published through it.</p></div><div class="route-head-actions"><button class="button secondary" id="closeRoutePanelBtn" type="button">Close</button><button class="button" id="newRouteBtn" type="button">Add published application route</button></div></div><div class="route-info-strip"><span><strong id="routeCount">0</strong> routes</span><span id="routeSource">Remote configuration</span><span>DNS target: <code id="routeDnsTarget">—</code></span></div><div class="table-wrap"><table class="route-table"><thead><tr><th>#</th><th>Hostname</th><th>Path</th><th>Service</th><th>Origin configurations</th><th></th></tr></thead><tbody id="routeTable"><tr><td colspan="6" class="muted center">Choose a tunnel to load published application routes.</td></tr></tbody></table></div><p class="route-footnote">CFPanel keeps the required final catch-all rule automatically. DNS-managed routes point to this tunnel through a proxied CNAME.</p></article>
+      </section>
 
-        <article class="panel route-manager" id="tunnelRoutePanel" hidden>
-          <div class="panel-head route-manager-head">
-            <div>
-              <div class="eyebrow">Published application routes</div>
-              <h2 id="routeTunnelName">Tunnel</h2>
-              <p id="routeTunnelMeta">Select a tunnel to manage the domains and services published through it.</p>
-            </div>
-            <div class="route-head-actions">
-              <button class="button secondary" id="closeRoutePanelBtn" type="button">Close</button>
-              <button class="button" id="newRouteBtn" type="button">Add published application route</button>
-            </div>
-          </div>
-          <div class="route-info-strip">
-            <span><strong id="routeCount">0</strong> routes</span>
-            <span id="routeSource">Remote configuration</span>
-            <span>DNS target: <code id="routeDnsTarget">—</code></span>
-          </div>
-          <div class="table-wrap">
-            <table class="route-table">
-              <thead><tr><th>#</th><th>Hostname</th><th>Path</th><th>Service</th><th>Origin configurations</th><th></th></tr></thead>
-              <tbody id="routeTable"><tr><td colspan="6" class="muted center">Choose a tunnel to load published application routes.</td></tr></tbody>
-            </table>
-          </div>
-          <p class="route-footnote">CFPanel keeps the required final catch-all rule automatically. DNS-managed routes point to this tunnel through a proxied CNAME.</p>
-        </article>
+      <section class="page" id="page-zthub">
+        <div class="grid-two"><article class="panel"><div class="panel-head"><div><h2>Private network routes</h2><p>CIDR routes connected through Cloudflare Tunnel.</p></div><button class="button" id="newPrivateRouteBtn">Add route</button></div><div class="table-wrap"><table><thead><tr><th>Network</th><th>Tunnel</th><th>Comment</th><th></th></tr></thead><tbody id="privateRoutesTable"><tr><td colspan="4" class="muted center">Load Zero Trust Hub.</td></tr></tbody></table></div></article><article class="panel"><div class="panel-head"><div><h2>Gateway lists</h2><p>Reusable IP, domain, URL, email, device and category lists.</p></div><button class="button" id="newGatewayListBtn">Add list</button></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Type</th><th>Items</th><th></th></tr></thead><tbody id="gatewayListsTable"><tr><td colspan="4" class="muted center">Load Zero Trust Hub.</td></tr></tbody></table></div></article></div>
+        <article class="panel action-panel"><div class="panel-head"><div><h2>More Zero Trust APIs</h2><p>Jump straight into live Gateway rules, locations, WARP devices, service tokens or any other Cloudflare endpoint using API Explorer.</p></div></div><div class="shortcut-grid"><button class="shortcut" data-api-shortcut="/accounts/{account}/gateway/rules">Gateway rules</button><button class="shortcut" data-api-shortcut="/accounts/{account}/gateway/locations">Gateway locations</button><button class="shortcut" data-api-shortcut="/accounts/{account}/devices/physical-devices">WARP devices</button><button class="shortcut" data-api-shortcut="/accounts/{account}/access/service_tokens">Service tokens</button><button class="shortcut" data-api-shortcut="/accounts/{account}/gateway">Zero Trust account</button></div></article>
+      </section>
+
+      <section class="page" id="page-access">
+        <div class="toolbar"><button class="button" id="newAccessAppBtn">Create Access app</button><button class="button secondary" id="accessReloadBtn">Refresh</button></div>
+        <div class="grid-two"><article class="panel"><div class="panel-head"><div><h2>Access applications</h2><p>Self-hosted and other applications protected by Cloudflare Access.</p></div></div><div class="table-wrap tall-table"><table><thead><tr><th>Name</th><th>Domain</th><th>Type</th><th></th></tr></thead><tbody id="accessAppsTable"><tr><td colspan="4" class="muted center">Load Access.</td></tr></tbody></table></div></article><article class="panel"><div class="panel-head"><div><h2>Application policies</h2><p id="accessPolicyCaption">Select Policies on an application.</p></div><button class="button" id="newAccessPolicyBtn" disabled>Create policy JSON</button></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Decision</th><th></th></tr></thead><tbody id="accessPoliciesTable"><tr><td colspan="3" class="muted center">No application selected.</td></tr></tbody></table></div></article></div>
+      </section>
+
+      <section class="page" id="page-explorer">
+        <article class="panel explorer-panel"><div class="panel-head"><div><h2>Cloudflare API Explorer</h2><p>Advanced access to supported Cloudflare v4 endpoints. Requests are restricted to api.cloudflare.com and use the encrypted token in the main process.</p></div></div><div class="explorer-request"><select id="apiMethod"><option>GET</option><option>POST</option><option>PATCH</option><option>PUT</option><option>DELETE</option></select><input id="apiPath" placeholder="/accounts/{account-id}/gateway/rules"><button class="button" id="apiSendBtn">Send</button></div><label><span>JSON body</span><textarea id="apiBody" rows="10" placeholder="{}"></textarea></label><pre class="json-output explorer-output" id="apiOutput">Response will appear here.</pre></article>
       </section>
 
       <section class="page" id="page-settings">
-        <article class="panel settings-panel"><div class="panel-head"><div><h2>Cloudflare API</h2><p>Your API token is encrypted by the operating system and never stored in plain text.</p></div></div>
-          <form id="settingsForm" class="form-grid"><label><span>Account ID</span><input id="accountId" autocomplete="off" placeholder="32-character Cloudflare Account ID"></label><label><span>API Token</span><input id="apiToken" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved token"></label><div class="form-actions"><button class="button" type="submit">Save & test</button><button class="button danger ghost" type="button" id="clearTokenBtn">Forget token</button></div></form>
-          <div class="permission-note"><strong>Recommended token permissions</strong><span>Zone → Zone Read</span><span>Zone → DNS Write</span><span>Account → Cloudflare Tunnel Write</span><span>Account → Cloudflare Tunnel Read</span></div>
-        </article>
+        <article class="panel settings-panel"><div class="panel-head"><div><h2>Cloudflare API</h2><p>Your API token is encrypted by the operating system and never stored in plain text.</p></div></div><form id="settingsForm" class="form-grid"><label><span>Account ID</span><input id="accountId" autocomplete="off" placeholder="32-character Cloudflare Account ID"></label><label><span>API Token</span><input id="apiToken" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved token"></label><div class="form-actions"><button class="button" type="submit">Save & test</button><button class="button danger ghost" type="button" id="clearTokenBtn">Forget token</button></div></form><div class="permission-note"><strong>Permissions depend on which CFPanel modules you use</strong><span>Zone → Zone Read, Zone Settings Write, DNS Read/Write, Analytics Read</span><span>Workers Scripts Read/Write and Workers Routes Read/Write</span><span>Account → Cloudflare Tunnel / Cloudflare One Networks Read/Write</span><span>Access Apps and Policies Read/Write; Service Tokens if used</span><span>Zero Trust Read/Write and relevant Gateway permissions</span><span>Rulesets / WAF / Transform / Configuration permissions for rule editing</span></div></article>
       </section>
     </main>
   </div>
@@ -85,5 +108,6 @@
   <dialog id="modal"><form method="dialog" id="modalForm"><div class="modal-head"><h2 id="modalTitle">Action</h2><button class="icon-button" value="cancel">×</button></div><div id="modalBody"></div><div class="modal-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button" id="modalSubmit" value="default">Save</button></div></form></dialog>
   <script src="./renderer.js"></script>
   <script src="./routes.js"></script>
+  <script src="./plus.js"></script>
 </body>
 </html>
