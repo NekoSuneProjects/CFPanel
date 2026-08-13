@@ -1,11 +1,24 @@
 const path = require("node:path");
 const { app, BrowserWindow, ipcMain, clipboard, shell } = require("electron");
 const { CloudflareClient } = require("./cloudflare");
+const { CloudflarePlusClient } = require("./cloudflare-plus");
 const store = require("./store");
 
 function client() {
   return new CloudflareClient(store.getCredentials());
 }
+
+function plusClient() {
+  return new CloudflarePlusClient(store.getCredentials());
+}
+
+const PLUS_ACTIONS = new Set([
+  "listZoneSettings", "updateZoneSetting", "getUniversalSsl", "setUniversalSsl", "purgeCache", "batchDns", "zoneAnalytics",
+  "listWorkers", "downloadWorker", "uploadWorker", "deleteWorker", "listWorkerRoutes", "createWorkerRoute", "updateWorkerRoute", "deleteWorkerRoute",
+  "listAccessApps", "createAccessApp", "updateAccessApp", "deleteAccessApp", "listAccessPolicies", "createAccessPolicy", "updateAccessPolicy", "deleteAccessPolicy",
+  "listPrivateRoutes", "createPrivateRoute", "updatePrivateRoute", "deletePrivateRoute", "listGatewayLists", "createGatewayList", "updateGatewayList", "deleteGatewayList",
+  "listRulesets", "getRuleset", "createRuleset", "updateRuleset", "deleteRuleset", "graphql", "apiExplorer"
+]);
 
 function serializeError(error) {
   return {
@@ -74,6 +87,13 @@ app.whenReady().then(() => {
   register("tunnels:moveRoute", (args) => client().movePublicRoute(args));
   register("tunnels:addHostname", (args) => client().addPublicHostname(args));
   register("tunnels:removeHostname", (args) => client().removePublicHostname(args));
+
+  register("plus:call", async ({ action, args = [] }) => {
+    if (!PLUS_ACTIONS.has(action)) throw new Error("Unsupported CFPanel feature action.");
+    const target = plusClient()[action];
+    if (typeof target !== "function") throw new Error("CFPanel feature is unavailable.");
+    return target.apply(plusClient(), Array.isArray(args) ? args : [args]);
+  });
 
   register("system:copy", ({ text }) => clipboard.writeText(String(text || "")));
 
