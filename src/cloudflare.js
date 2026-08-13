@@ -84,6 +84,16 @@ class CloudflareClient {
     return payload.result || [];
   }
 
+  async findDns(zoneId, { name, type = "CNAME" }) {
+    const query = new URLSearchParams({
+      name: String(name || "").trim().toLowerCase(),
+      type,
+      per_page: "100"
+    });
+    const payload = await this.request(`/zones/${encodeURIComponent(zoneId)}/dns_records?${query.toString()}`);
+    return payload.result || [];
+  }
+
   async createDns(zoneId, record) {
     return (await this.request(`/zones/${encodeURIComponent(zoneId)}/dns_records`, {
       method: "POST",
@@ -130,10 +140,19 @@ class CloudflareClient {
     return (await this.request(`/accounts/${encodeURIComponent(this.accountId)}/cfd_tunnel/${encodeURIComponent(tunnelId)}/token`)).result;
   }
 
-  async getTunnelConfig(tunnelId) {
+  async getTunnelConfiguration(tunnelId) {
     this.assertAccount();
     const payload = await this.request(`/accounts/${encodeURIComponent(this.accountId)}/cfd_tunnel/${encodeURIComponent(tunnelId)}/configurations`);
-    return payload.result?.config || { ingress: [{ service: "http_status:404" }] };
+    return payload.result || {
+      tunnel_id: tunnelId,
+      source: "cloudflare",
+      config: { ingress: [{ service: "http_status:404" }] }
+    };
+  }
+
+  async getTunnelConfig(tunnelId) {
+    const result = await this.getTunnelConfiguration(tunnelId);
+    return result.config || { ingress: [{ service: "http_status:404" }] };
   }
 
   async putTunnelConfig(tunnelId, config) {
@@ -144,59 +163,168 @@ class CloudflareClient {
     })).result;
   }
 
-  async addPublicHostname({ tunnelId, zoneId, hostname, service }) {
+  splitIngress(config) {
+    const ingress = Array.isArray(config?.ingress) ? config.ingress.filter(Boolean) : [];
+    const routes = ingress.filter((rule) => rule.hostname);
+    const catchAll = [...ingress].reverse().find((rule) => !rule.hostname)
+      || { service: "http_status:404" };
+    return { routes, catchAll };
+  }
+
+  normalizeOriginRequest(originRequest = {}) {
+    const result = {};
+    if (originRequest.noTLSVerify === true) result.noTLSVerify = true;
+    if (String(originRequest.httpHostHeader || "").trim()) {
+      result.httpHostHeader = String(originRequest.httpHostHeader).trim();
+    }
+    if (String(originRequest.originServerName || "").trim()) {
+      result.originServerName = String(originRequest.originServerName).trim();
+    }
+    return result;
+  }
+
+  normalizeRoute({ hostname, path, service, originRequest }) {
     const normalizedHostname = String(hostname || "").trim().toLowerCase();
     const normalizedService = String(service || "").trim();
-    if (!normalizedHostname || !normalizedService) throw new Error("Hostname and service are required.");
+    const normalizedPath = String(path || "").trim();
 
-    const config = await this.getTunnelConfig(tunnelId);
-    const ingress = Array.isArray(config.ingress) ? config.ingress.filter(Boolean) : [];
-    const catchAll = ingress.find((rule) => !rule.hostname) || { service: "http_status:404" };
-    const named = ingress.filter((rule) => rule.hostname && rule.hostname !== normalizedHostname);
-    named.push({ hostname: normalizedHostname, service: normalizedService, originRequest: {} });
+    if (!normalizedHostname || !normalizedService) {
+      throw new Error("Hostname and service are required.");
+    }
 
-    const nextConfig = { ...config, ingress: [...named, catchAll] };
-    await this.putTunnelConfig(tunnelId, nextConfig);
+    const route = {
+      hostname: normalizedHostname,
+      service: normalizedService,
+      originRequest: this.normalizeOriginRequest(originRequest)
+    };
+    if (normalizedPath && normalizedPath !== "*") route.path = normalizedPath;
+    return route;
+  }
 
-    const existing = (await this.listDns(zoneId)).find(
-      (r) => r.name?.toLowerCase() === normalizedHostname && r.type === "CNAME"
-    );
+  async ensureTunnelDns({ zoneId, tunnelId, hostname }) {
+    if (!zoneId) return null;
+    const target = `${tunnelId}.cfargotunnel.com`;
+    const matches = await this.findDns(zoneId, { name: hostname, type: "CNAME" });
+    const existing = matches.find((record) => record.name?.toLowerCase() === hostname.toLowerCase());
     const record = {
       type: "CNAME",
-      name: normalizedHostname,
-      content: `${tunnelId}.cfargotunnel.com`,
+      name: hostname,
+      content: target,
       proxied: true,
       ttl: 1,
       comment: "Managed by CFPanel for Cloudflare Tunnel"
     };
 
-    if (existing) {
-      await this.updateDns(zoneId, existing.id, record);
+    if (existing) return this.updateDns(zoneId, existing.id, record);
+    return this.createDns(zoneId, record);
+  }
+
+  async removeTunnelDns({ zoneId, tunnelId, hostname }) {
+    if (!zoneId || !hostname) return false;
+    const target = `${tunnelId}.cfargotunnel.com`.toLowerCase();
+    const matches = await this.findDns(zoneId, { name: hostname, type: "CNAME" });
+    const record = matches.find((item) =>
+      item.name?.toLowerCase() === hostname.toLowerCase()
+      && String(item.content || "").toLowerCase() === target
+    );
+    if (!record) return false;
+    await this.deleteDns(zoneId, record.id);
+    return true;
+  }
+
+  async savePublicRoute({
+    tunnelId,
+    routeIndex,
+    zoneId,
+    originalZoneId,
+    hostname,
+    path,
+    service,
+    originRequest,
+    manageDns = true
+  }) {
+    const config = await this.getTunnelConfig(tunnelId);
+    const { routes, catchAll } = this.splitIngress(config);
+    const nextRoute = this.normalizeRoute({ hostname, path, service, originRequest });
+    const editing = Number.isInteger(routeIndex) && routeIndex >= 0;
+    let previous = null;
+
+    if (editing) {
+      if (routeIndex >= routes.length) throw new Error("The selected tunnel route no longer exists. Refresh and try again.");
+      previous = routes[routeIndex];
+      routes[routeIndex] = nextRoute;
     } else {
-      await this.createDns(zoneId, record);
+      routes.push(nextRoute);
     }
+
+    const nextConfig = { ...config, ingress: [...routes, catchAll] };
+    await this.putTunnelConfig(tunnelId, nextConfig);
+
+    if (manageDns) {
+      await this.ensureTunnelDns({ zoneId, tunnelId, hostname: nextRoute.hostname });
+    }
+
+    if (previous && previous.hostname !== nextRoute.hostname) {
+      const previousStillUsed = routes.some((rule) => rule.hostname === previous.hostname);
+      if (!previousStillUsed && originalZoneId) {
+        await this.removeTunnelDns({
+          zoneId: originalZoneId,
+          tunnelId,
+          hostname: previous.hostname
+        });
+      }
+    }
+
     return nextConfig;
   }
 
-  async removePublicHostname({ tunnelId, zoneId, hostname, removeDns = true }) {
-    const normalizedHostname = String(hostname || "").trim().toLowerCase();
+  async removePublicRoute({ tunnelId, routeIndex, zoneId, removeDns = true }) {
     const config = await this.getTunnelConfig(tunnelId);
-    const ingress = Array.isArray(config.ingress) ? config.ingress.filter(Boolean) : [];
-    const catchAll = ingress.find((rule) => !rule.hostname) || { service: "http_status:404" };
-    const named = ingress.filter((rule) => rule.hostname && rule.hostname !== normalizedHostname);
-    const nextConfig = { ...config, ingress: [...named, catchAll] };
+    const { routes, catchAll } = this.splitIngress(config);
+    const index = Number(routeIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= routes.length) {
+      throw new Error("The selected tunnel route no longer exists. Refresh and try again.");
+    }
+
+    const [removed] = routes.splice(index, 1);
+    const nextConfig = { ...config, ingress: [...routes, catchAll] };
     await this.putTunnelConfig(tunnelId, nextConfig);
 
-    if (removeDns && zoneId) {
-      const records = await this.listDns(zoneId);
-      const match = records.find(
-        (r) => r.name?.toLowerCase() === normalizedHostname
-          && r.type === "CNAME"
-          && r.content === `${tunnelId}.cfargotunnel.com`
-      );
-      if (match) await this.deleteDns(zoneId, match.id);
+    if (removeDns && zoneId && !routes.some((rule) => rule.hostname === removed.hostname)) {
+      await this.removeTunnelDns({ zoneId, tunnelId, hostname: removed.hostname });
     }
+    return { config: nextConfig, removed };
+  }
+
+  async movePublicRoute({ tunnelId, routeIndex, direction }) {
+    const config = await this.getTunnelConfig(tunnelId);
+    const { routes, catchAll } = this.splitIngress(config);
+    const from = Number(routeIndex);
+    const delta = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+    const to = from + delta;
+
+    if (!Number.isInteger(from) || !delta || from < 0 || from >= routes.length || to < 0 || to >= routes.length) {
+      return config;
+    }
+
+    [routes[from], routes[to]] = [routes[to], routes[from]];
+    const nextConfig = { ...config, ingress: [...routes, catchAll] };
+    await this.putTunnelConfig(tunnelId, nextConfig);
     return nextConfig;
+  }
+
+  // Backwards-compatible wrappers used by older CFPanel UI builds.
+  async addPublicHostname({ tunnelId, zoneId, hostname, service, path, originRequest }) {
+    return this.savePublicRoute({ tunnelId, zoneId, hostname, service, path, originRequest, manageDns: true });
+  }
+
+  async removePublicHostname({ tunnelId, zoneId, hostname, removeDns = true }) {
+    const config = await this.getTunnelConfig(tunnelId);
+    const { routes } = this.splitIngress(config);
+    const index = routes.findIndex((rule) => rule.hostname === String(hostname || "").trim().toLowerCase());
+    if (index < 0) return config;
+    const result = await this.removePublicRoute({ tunnelId, routeIndex: index, zoneId, removeDns });
+    return result.config;
   }
 }
 
