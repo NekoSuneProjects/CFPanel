@@ -36,7 +36,11 @@ jobs:
         run: npm install
 
       - name: Syntax check
-        run: npm run check
+        run: |
+          npm run check
+          node --check src/plus.js
+          node --check src/cloudflare-plus.js
+          node --check src/register-plus.js
 
       - name: Build packages
         run: ${{ matrix.command }}
