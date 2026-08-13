@@ -1,0 +1,51 @@
+{
+  "name": "cfpanel",
+  "version": "0.1.0",
+  "description": "A lightweight desktop panel for managing Cloudflare zones, DNS and Zero Trust tunnels.",
+  "main": "src/main.js",
+  "author": "NekoSuneProjects",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/cloudflare.js && node --check src/store.js",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "uk.co.nekosunevr.cfpanel",
+    "productName": "CFPanel",
+    "artifactName": "CFPanel-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "src/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
