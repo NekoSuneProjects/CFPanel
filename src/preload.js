@@ -24,5 +24,6 @@ contextBridge.exposeInMainWorld("cfpanel", {
   movePublicRoute: (args) => call("tunnels:moveRoute", args),
   addPublicHostname: (args) => call("tunnels:addHostname", args),
   removePublicHostname: (args) => call("tunnels:removeHostname", args),
+  plus: (action, ...args) => call("plus:call", { action, args }),
   copy: (text) => call("system:copy", { text })
 });
