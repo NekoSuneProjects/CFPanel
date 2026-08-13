@@ -42,7 +42,36 @@
         <article class="panel"><div class="panel-head"><div><h2>DNS Records</h2><p id="dnsCaption">Choose a domain to view DNS.</p></div><button class="button" id="newDnsBtn" disabled>Add DNS record</button></div><div class="table-wrap"><table><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>Proxy</th><th>TTL</th><th></th></tr></thead><tbody id="dnsTable"><tr><td colspan="6" class="muted center">No domain selected.</td></tr></tbody></table></div></article>
       </section>
 
-      <section class="page" id="page-tunnels"><div class="toolbar"><button class="button" id="newTunnelBtn">Create tunnel</button></div><div id="tunnelGrid" class="card-grid"></div></section>
+      <section class="page" id="page-tunnels">
+        <div class="toolbar"><button class="button" id="newTunnelBtn">Create tunnel</button></div>
+        <div id="tunnelGrid" class="card-grid"></div>
+
+        <article class="panel route-manager" id="tunnelRoutePanel" hidden>
+          <div class="panel-head route-manager-head">
+            <div>
+              <div class="eyebrow">Published application routes</div>
+              <h2 id="routeTunnelName">Tunnel</h2>
+              <p id="routeTunnelMeta">Select a tunnel to manage the domains and services published through it.</p>
+            </div>
+            <div class="route-head-actions">
+              <button class="button secondary" id="closeRoutePanelBtn" type="button">Close</button>
+              <button class="button" id="newRouteBtn" type="button">Add published application route</button>
+            </div>
+          </div>
+          <div class="route-info-strip">
+            <span><strong id="routeCount">0</strong> routes</span>
+            <span id="routeSource">Remote configuration</span>
+            <span>DNS target: <code id="routeDnsTarget">—</code></span>
+          </div>
+          <div class="table-wrap">
+            <table class="route-table">
+              <thead><tr><th>#</th><th>Hostname</th><th>Path</th><th>Service</th><th>Origin configurations</th><th></th></tr></thead>
+              <tbody id="routeTable"><tr><td colspan="6" class="muted center">Choose a tunnel to load published application routes.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="route-footnote">CFPanel keeps the required final catch-all rule automatically. DNS-managed routes point to this tunnel through a proxied CNAME.</p>
+        </article>
+      </section>
 
       <section class="page" id="page-settings">
         <article class="panel settings-panel"><div class="panel-head"><div><h2>Cloudflare API</h2><p>Your API token is encrypted by the operating system and never stored in plain text.</p></div></div>
