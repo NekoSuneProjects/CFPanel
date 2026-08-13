@@ -68,6 +68,10 @@ app.whenReady().then(() => {
   register("tunnels:delete", ({ tunnelId }) => client().deleteTunnel(tunnelId));
   register("tunnels:token", ({ tunnelId }) => client().getTunnelToken(tunnelId));
   register("tunnels:config", ({ tunnelId }) => client().getTunnelConfig(tunnelId));
+  register("tunnels:configuration", ({ tunnelId }) => client().getTunnelConfiguration(tunnelId));
+  register("tunnels:saveRoute", (args) => client().savePublicRoute(args));
+  register("tunnels:removeRoute", (args) => client().removePublicRoute(args));
+  register("tunnels:moveRoute", (args) => client().movePublicRoute(args));
   register("tunnels:addHostname", (args) => client().addPublicHostname(args));
   register("tunnels:removeHostname", (args) => client().removePublicHostname(args));
 
