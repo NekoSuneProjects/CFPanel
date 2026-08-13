@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFPanel</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">CF</div><div><strong>CFPanel</strong><span>NekoSuneProjects</span></div></div>
+      <nav id="nav">
+        <button class="nav-item active" data-page="dashboard">Overview</button>
+        <button class="nav-item" data-page="domains">Domains & DNS</button>
+        <button class="nav-item" data-page="tunnels">Zero Trust Tunnels</button>
+        <button class="nav-item" data-page="settings">Settings</button>
+      </nav>
+      <div class="sidebar-footer"><span class="status-dot" id="connectionDot"></span><span id="connectionText">Not connected</span></div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar"><div><h1 id="pageTitle">Overview</h1><p id="pageSubtitle">Manage Cloudflare without living in the dashboard.</p></div><button class="button secondary" id="refreshBtn">Refresh</button></header>
+      <div id="toast" class="toast" hidden></div>
+
+      <section class="page active" id="page-dashboard">
+        <div class="stat-grid">
+          <article class="stat-card"><span>Domains</span><strong id="statDomains">—</strong><small>Cloudflare zones</small></article>
+          <article class="stat-card"><span>DNS records</span><strong id="statDns">—</strong><small>Loaded zone records</small></article>
+          <article class="stat-card"><span>Tunnels</span><strong id="statTunnels">—</strong><small>Zero Trust connectors</small></article>
+          <article class="stat-card"><span>Healthy</span><strong id="statHealthy">—</strong><small>Connected tunnels</small></article>
+        </div>
+        <div class="grid-two">
+          <article class="panel"><div class="panel-head"><div><h2>Domains</h2><p>Your Cloudflare zones</p></div><button class="link-button" data-jump="domains">Manage</button></div><div id="dashboardZones" class="stack empty-state">Connect your API token to load domains.</div></article>
+          <article class="panel"><div class="panel-head"><div><h2>Tunnels</h2><p>Cloudflare Tunnel health</p></div><button class="link-button" data-jump="tunnels">Manage</button></div><div id="dashboardTunnels" class="stack empty-state">Connect your API token to load tunnels.</div></article>
+        </div>
+      </section>
+
+      <section class="page" id="page-domains">
+        <div class="toolbar"><select id="zoneSelect"><option value="">Select a domain</option></select><button class="button" id="newZoneBtn">Add domain</button><button class="button danger ghost" id="deleteZoneBtn" disabled>Delete domain</button></div>
+        <article class="panel"><div class="panel-head"><div><h2>DNS Records</h2><p id="dnsCaption">Choose a domain to view DNS.</p></div><button class="button" id="newDnsBtn" disabled>Add DNS record</button></div><div class="table-wrap"><table><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>Proxy</th><th>TTL</th><th></th></tr></thead><tbody id="dnsTable"><tr><td colspan="6" class="muted center">No domain selected.</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-tunnels"><div class="toolbar"><button class="button" id="newTunnelBtn">Create tunnel</button></div><div id="tunnelGrid" class="card-grid"></div></section>
+
+      <section class="page" id="page-settings">
+        <article class="panel settings-panel"><div class="panel-head"><div><h2>Cloudflare API</h2><p>Your API token is encrypted by the operating system and never stored in plain text.</p></div></div>
+          <form id="settingsForm" class="form-grid"><label><span>Account ID</span><input id="accountId" autocomplete="off" placeholder="32-character Cloudflare Account ID"></label><label><span>API Token</span><input id="apiToken" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved token"></label><div class="form-actions"><button class="button" type="submit">Save & test</button><button class="button danger ghost" type="button" id="clearTokenBtn">Forget token</button></div></form>
+          <div class="permission-note"><strong>Recommended token permissions</strong><span>Zone → Zone Read</span><span>Zone → DNS Write</span><span>Account → Cloudflare Tunnel Write</span><span>Account → Cloudflare Tunnel Read</span></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="modal"><form method="dialog" id="modalForm"><div class="modal-head"><h2 id="modalTitle">Action</h2><button class="icon-button" value="cancel">×</button></div><div id="modalBody"></div><div class="modal-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button" id="modalSubmit" value="default">Save</button></div></form></dialog>
+  <script src="./renderer.js"></script>
+</body>
+</html>
