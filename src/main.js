@@ -26,7 +26,7 @@ function register(channel, handler) {
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1440,
+    width: 1500,
     height: 900,
     minWidth: 980,
     minHeight: 650,
