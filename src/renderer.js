@@ -1,5 +1,5 @@
 const api = window.cfpanel;
-const state = { zones: [], tunnels: [], dns: [], selectedZoneId: "" };
+const state = { zones: [], tunnels: [], dns: [], selectedZoneId: "", selectedAccountId: "", primaryAccountId: "" };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 
@@ -8,14 +8,90 @@ function toast(msg, bad=false){ const e=$("toast"); e.textContent=msg; e.classLi
 function connected(v){ $("connectionDot").classList.toggle("online",v); $("connectionText").textContent=v?"Cloudflare connected":"Not connected"; }
 function nav(page){ document.querySelectorAll(".page").forEach(e=>e.classList.toggle("active",e.id===`page-${page}`)); document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.page===page)); const m={dashboard:["Overview","Manage Cloudflare without living in the dashboard."],domains:["Domains & DNS","Manage zones and DNS records."],tunnels:["Zero Trust Tunnels","Create tunnels, publish hostnames and retrieve connector tokens."],settings:["Settings","Connect CFPanel to your Cloudflare account."]}[page]; $("pageTitle").textContent=m[0]; $("pageSubtitle").textContent=m[1]; }
 
+function accountProfiles(){
+  const accounts=new Map();
+  for(const zone of state.zones){
+    const id=String(zone?.account?.id||"").trim();
+    if(!id) continue;
+    const name=String(zone?.account?.name||"Cloudflare account").trim()||"Cloudflare account";
+    const current=accounts.get(id)||{id,name,zoneCount:0};
+    current.zoneCount+=1;
+    if(!current.name||current.name==="Cloudflare account") current.name=name;
+    accounts.set(id,current);
+  }
+  return [...accounts.values()].sort((a,b)=>{
+    if(a.id===state.primaryAccountId&&b.id!==state.primaryAccountId)return -1;
+    if(b.id===state.primaryAccountId&&a.id!==state.primaryAccountId)return 1;
+    return a.name.localeCompare(b.name,undefined,{sensitivity:"base"});
+  });
+}
+function overviewZones(){
+  if(!state.selectedAccountId)return state.zones;
+  return state.zones.filter(z=>String(z?.account?.id||"")===state.selectedAccountId);
+}
+function installAccountProfileSelector(){
+  const page=$("page-dashboard");
+  if(!page||$("accountProfilePanel"))return;
+  const style=document.createElement("style");
+  style.id="accountProfileStyles";
+  style.textContent=`
+    .account-profile-panel{margin-bottom:16px;padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,430px);gap:22px;align-items:center;background:linear-gradient(135deg,rgba(72,245,156,.055),rgba(9,22,15,.94))}
+    .account-profile-copy{min-width:0}.account-profile-copy h2{margin:3px 0 6px}.account-profile-copy p{margin:0;color:var(--muted);line-height:1.45}
+    .account-profile-controls{display:grid;gap:10px}.account-profile-controls label{display:grid;gap:6px}.account-profile-controls label>span{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .account-profile-summary{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.account-profile-summary .badge{white-space:nowrap}
+    .account-profile-domain-account{color:var(--muted)}
+    @media(max-width:850px){.account-profile-panel{grid-template-columns:1fr}.account-profile-summary{justify-content:flex-start}}
+  `;
+  document.head.appendChild(style);
+  const panel=document.createElement("article");
+  panel.id="accountProfilePanel";
+  panel.className="panel account-profile-panel";
+  panel.innerHTML=`<div class="account-profile-copy"><div class="eyebrow">Cloudflare profile</div><h2>Account scope</h2><p id="accountProfileCaption">Loading accounts available to this API token…</p></div><div class="account-profile-controls"><label><span>Profile / account</span><select id="accountProfileSelect"><option value="">All accessible accounts</option></select></label><div class="account-profile-summary"><span class="badge" id="accountProfileAccounts">0 accounts</span><span class="badge" id="accountProfileDomains">0 domains</span></div></div>`;
+  const first=page.firstElementChild;
+  page.insertBefore(panel,first||null);
+  $("accountProfileSelect").addEventListener("change",ev=>{
+    state.selectedAccountId=ev.target.value;
+    renderAccountProfileSelector();
+    renderAccountScopedOverview();
+  });
+}
+function renderAccountProfileSelector(){
+  const select=$("accountProfileSelect");
+  if(!select)return;
+  const profiles=accountProfiles();
+  if(state.selectedAccountId&&!profiles.some(a=>a.id===state.selectedAccountId))state.selectedAccountId="";
+  select.innerHTML=`<option value="">All accessible accounts</option>${profiles.map(a=>{
+    const role=a.id===state.primaryAccountId?"Primary":"Shared/access";
+    return `<option value="${esc(a.id)}">${esc(a.name)} — ${role} (${a.zoneCount} domain${a.zoneCount===1?"":"s"})</option>`;
+  }).join("")}`;
+  select.value=state.selectedAccountId;
+  const visible=overviewZones();
+  const selected=profiles.find(a=>a.id===state.selectedAccountId);
+  $("accountProfileAccounts").textContent=`${profiles.length} account${profiles.length===1?"":"s"} accessible`;
+  $("accountProfileDomains").textContent=`${visible.length} domain${visible.length===1?"":"s"} shown`;
+  $("accountProfileCaption").textContent=selected
+    ? `${selected.name} is selected. CFPanel is showing domains from this ${selected.id===state.primaryAccountId?"primary":"shared/access"} account on Overview.`
+    : profiles.length
+      ? `Showing domains from all ${profiles.length} Cloudflare accounts visible to this token, including shared access.`
+      : "No Cloudflare accounts with visible zones were returned by this token.";
+}
+function renderAccountScopedOverview(){
+  const container=$("dashboardZones");
+  if(!container)return;
+  const zones=overviewZones();
+  $("statDomains").textContent=zones.length;
+  container.className=zones.length?"stack":"stack empty-state";
+  container.innerHTML=zones.length?zones.slice(0,6).map(z=>`<div class="list-row"><button class="dashboard-click" type="button" data-open-zone="${esc(z.id)}"><strong>${esc(z.name)}</strong><small>${esc(z.status||"unknown")} · <span class="account-profile-domain-account">${esc(z?.account?.name||"Unknown account")}</span></small></button><span class="badge">${esc(z.type||"zone")}</span></div>`).join(""):state.selectedAccountId?"No domains are visible in this account.":"No domains loaded.";
+}
+
 async function refreshAll(){
   try{
-    const settings=unwrap(await api.getSettings()); $("accountId").value=settings.accountId||"";
-    if(!settings.hasToken){ connected(false); state.zones=[]; state.tunnels=[]; renderAll(); return; }
+    const settings=unwrap(await api.getSettings()); $("accountId").value=settings.accountId||""; state.primaryAccountId=settings.accountId||"";
+    if(!settings.hasToken){ connected(false); state.zones=[]; state.tunnels=[]; state.selectedAccountId=""; renderAll(); renderAccountProfileSelector(); renderAccountScopedOverview(); return; }
     unwrap(await api.verify()); connected(true);
-    const [z,t]=await Promise.all([api.listZones(),api.listTunnels()]); state.zones=unwrap(z); state.tunnels=unwrap(t); renderAll();
+    const [z,t]=await Promise.all([api.listZones(),api.listTunnels()]); state.zones=unwrap(z); state.tunnels=unwrap(t); renderAll(); renderAccountProfileSelector(); renderAccountScopedOverview();
     if(state.selectedZoneId) await loadDns(state.selectedZoneId);
-  }catch(e){ connected(false); toast(e.message,true); renderAll(); }
+  }catch(e){ connected(false); toast(e.message,true); renderAll(); renderAccountProfileSelector(); renderAccountScopedOverview(); }
 }
 async function loadDns(zoneId){ if(!zoneId){state.dns=[];renderDns();return;} try{state.dns=unwrap(await api.listDns(zoneId));renderDns();renderStats();}catch(e){toast(e.message,true);} }
 function renderAll(){ renderZones(); renderDns(); renderDashboard(); renderStats(); renderTunnels(); }
@@ -58,4 +134,5 @@ $("zoneSelect").addEventListener("change",async ev=>{state.selectedZoneId=ev.tar
 $("deleteZoneBtn").addEventListener("click",async()=>{const z=state.zones.find(x=>x.id===state.selectedZoneId);if(z&&confirm(`Delete ${z.name} from Cloudflare?`)){try{unwrap(await api.deleteZone(z.id));state.selectedZoneId="";state.dns=[];await refreshAll();toast("Domain deleted.");}catch(e){toast(e.message,true);}}});
 $("settingsForm").addEventListener("submit",async ev=>{ev.preventDefault();try{unwrap(await api.saveSettings({accountId:$("accountId").value,apiToken:$("apiToken").value}));$("apiToken").value="";unwrap(await api.verify());toast("Cloudflare credentials saved and verified.");await refreshAll();}catch(e){toast(e.message,true);}});
 $("clearTokenBtn").addEventListener("click",async()=>{if(confirm("Forget the saved Cloudflare API token?")){unwrap(await api.clearToken());$("apiToken").value="";connected(false);toast("Saved API token removed.");await refreshAll();}});
+installAccountProfileSelector();
 refreshAll();
