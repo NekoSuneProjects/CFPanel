@@ -95,7 +95,7 @@ async function refreshAll(){
 }
 async function loadDns(zoneId){ if(!zoneId){state.dns=[];renderDns();return;} try{state.dns=unwrap(await api.listDns(zoneId));renderDns();renderStats();}catch(e){toast(e.message,true);} }
 function renderAll(){ renderZones(); renderDns(); renderDashboard(); renderStats(); renderTunnels(); }
-function renderStats(){ $("statDomains").textContent=state.zones.length; $("statDns").textContent=state.selectedZoneId?state.dns.length:"—"; $("statTunnels").textContent=state.tunnels.length; $("statHealthy").textContent=state.tunnels.filter(t=>t.status==="healthy").length; }
+function renderStats(){ $("statDomains").textContent=overviewZones().length; $("statDns").textContent=state.selectedZoneId?state.dns.length:"—"; $("statTunnels").textContent=state.tunnels.length; $("statHealthy").textContent=state.tunnels.filter(t=>t.status==="healthy").length; }
 function renderDashboard(){
   $("dashboardZones").className=state.zones.length?"stack":"stack empty-state"; $("dashboardZones").innerHTML=state.zones.length?state.zones.slice(0,6).map(z=>`<div class="list-row"><div><strong>${esc(z.name)}</strong><small>${esc(z.status||"unknown")}</small></div><span class="badge">${esc(z.type||"zone")}</span></div>`).join(""):"No domains loaded.";
   $("dashboardTunnels").className=state.tunnels.length?"stack":"stack empty-state"; $("dashboardTunnels").innerHTML=state.tunnels.length?state.tunnels.slice(0,6).map(t=>`<div class="list-row"><div><strong>${esc(t.name)}</strong><small>${esc(t.id)}</small></div><span class="badge ${esc(t.status)}">${esc(t.status||"unknown")}</span></div>`).join(""):"No tunnels loaded.";
